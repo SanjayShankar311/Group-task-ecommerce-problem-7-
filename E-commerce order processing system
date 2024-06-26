@@ -1,0 +1,266 @@
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
+
+// Exception handling for various scenarios
+class PaymentException extends Exception {
+    public PaymentException(String message) {
+        super(message);
+    }
+}
+
+class ShipmentException extends Exception {
+    public ShipmentException(String message) {
+        super(message);
+    }
+}
+
+// Define the Product class
+class Product {
+    protected String name;
+    protected double price;
+
+    public Product(String name, double price) {
+        this.name = name;
+        this.price = price;
+    }
+
+    public double getPrice() {
+        return price;
+    }
+
+    @Override
+    public String toString() {
+        return name;
+    }
+}
+
+// Composite pattern to handle complex products
+class CompositeProduct extends Product {
+    private List<Product> subProducts = new ArrayList<>();
+
+    public CompositeProduct(String name) {
+        super(name, 0);
+    }
+
+    public void add(Product product) {
+        subProducts.add(product);
+    }
+
+    @Override
+    public double getPrice() {
+        double totalPrice = 0;
+        for (Product product : subProducts) {
+            totalPrice += product.getPrice();
+        }
+        return totalPrice;
+    }
+}
+
+// Define the Customer class
+class Customer {
+    private String name;
+    private String email;
+
+    public Customer(String name, String email) {
+        this.name = name;
+        this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return name + " (" + email + ")";
+    }
+}
+
+// Strategy pattern for payment methods
+interface PaymentStrategy {
+    void pay(double amount) throws PaymentException;
+}
+
+class CreditCardPayment implements PaymentStrategy {
+    public void pay(double amount) throws PaymentException {
+        if (new Random().nextInt(20) == 0) { // 1 in 20 chance of failure
+            throw new PaymentException("Credit Card payment failed!");
+        }
+        System.out.println("Paid " + amount + " using Credit Card");
+    }
+}
+
+class PayPalPayment implements PaymentStrategy {
+    public void pay(double amount) throws PaymentException {
+        if (new Random().nextInt(20) == 0) { // 1 in 20 chance of failure
+            throw new PaymentException("PayPal payment failed!");
+        }
+        System.out.println("Paid " + amount + " using PayPal");
+    }
+}
+
+// State pattern for managing order states
+interface OrderState {
+    void handle(Order order);
+}
+
+class NewOrderState implements OrderState {
+    public void handle(Order order) {
+        System.out.println("Order is now in New state");
+        order.setState(new ProcessingOrderState());
+    }
+}
+
+class ProcessingOrderState implements OrderState {
+    public void handle(Order order) {
+        System.out.println("Order is now Processing");
+        order.setState(new ShippedOrderState());
+    }
+}
+
+class ShippedOrderState implements OrderState {
+    public void handle(Order order) {
+        System.out.println("Order is now Shipped");
+        order.setState(new DeliveredOrderState());
+    }
+}
+
+class DeliveredOrderState implements OrderState {
+    public void handle(Order order) {
+        System.out.println("Order is Delivered");
+    }
+}
+
+// Define the Order class
+class Order {
+    private Customer customer;
+    private List<Product> products = new ArrayList<>();
+    private OrderState state = new NewOrderState();
+
+    public Order(Customer customer) {
+        this.customer = customer;
+    }
+
+    public void addProduct(Product product) {
+        products.add(product);
+    }
+
+    public double getTotal() {
+        return products.stream().mapToDouble(Product::getPrice).sum();
+    }
+
+    public void processOrder() {
+        state.handle(this);
+    }
+
+    public void setState(OrderState state) {
+        this.state = state;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+}
+
+// Define the Shipment class
+class Shipment {
+    public void ship(Order order) throws ShipmentException {
+        if (new Random().nextInt(20) == 0) { // 1 in 20 chance of failure
+            throw new ShipmentException("Shipment failed!");
+        }
+        System.out.println("Order shipped to " + order.getCustomer());
+    }
+}
+
+// Main class to run the commerce application
+public class Commerce {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+
+        // Get customer details
+        System.out.print("Enter customer name: ");
+        String customerName = scanner.nextLine();
+        System.out.print("Enter customer email: ");
+        String customerEmail = scanner.nextLine();
+        Customer customer = new Customer(customerName, customerEmail);
+
+        // Create products
+        Product laptop = new Product("Laptop", 1000);
+        Product mouse = new Product("Mouse", 50);
+        Product keyboard = new Product("Keyboard", 100);
+
+        // Create a composite product
+        CompositeProduct computerSet = new CompositeProduct("Computer Set");
+        computerSet.add(laptop);
+        computerSet.add(mouse);
+        computerSet.add(keyboard);
+
+        // Create an order
+        Order order = new Order(customer);
+
+        // Allow user to add products to the order
+        boolean addingProducts = true;
+        while (addingProducts) {
+            System.out.println("Available products: ");
+            System.out.println("1. Laptop - $1000");
+            System.out.println("2. Mouse - $50");
+            System.out.println("3. Keyboard - $100");
+            System.out.println("4. Computer Set - $1150");
+
+            System.out.print("Enter product number to add to order (or 0 to finish): ");
+            int productChoice = scanner.nextInt();
+            switch (productChoice) {
+                case 1:
+                    order.addProduct(laptop);
+                    break;
+                case 2:
+                    order.addProduct(mouse);
+                    break;
+                case 3:
+                    order.addProduct(keyboard);
+                    break;
+                case 4:
+                    order.addProduct(computerSet);
+                    break;
+                case 0:
+                    addingProducts = false;
+                    break;
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+                    break;
+            }
+        }
+
+        // Process order
+        try {
+            order.processOrder();
+            order.processOrder();  // Change state to Processing
+            order.processOrder();  // Change state to Shipped
+
+            // Choose payment method
+            System.out.print("Enter payment method (1 for Credit Card, 2 for PayPal): ");
+            int paymentMethodChoice = scanner.nextInt();
+            PaymentStrategy paymentMethod = null;
+            if (paymentMethodChoice == 1) {
+                paymentMethod = new CreditCardPayment();
+            } else if (paymentMethodChoice == 2) {
+                paymentMethod = new PayPalPayment();
+            } else {
+                System.out.println("Invalid payment method.");
+                return;
+            }
+
+            // Make payment
+            paymentMethod.pay(order.getTotal());
+
+            // Ship the order
+            Shipment shipment = new Shipment();
+            shipment.ship(order);
+            order.processOrder();  // Change state to Delivered
+
+        } catch (PaymentException | ShipmentException e) {
+            System.out.println(e.getMessage());
+        }
+
+        scanner.close();
+    }
+}
